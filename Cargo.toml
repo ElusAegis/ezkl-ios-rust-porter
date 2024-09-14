@@ -1,0 +1,43 @@
+[package]
+name = "phone-based-zkml"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+name = "ios_ezkl"
+
+[features]
+
+[dependencies]
+num-bigint = "0.4.0"
+
+uniffi = { version = "0.28", features = ["cli"] }
+uuid = { version = "1.10.0", features = ["v4"] }
+
+ezkl = { git = "https://github.com/zkonduit/ezkl.git", tag = "v13.0.2" }
+tokio = "1.40.0"
+halo2_proofs = { git = "https://github.com/zkonduit/halo2", package = "halo2_proofs" }
+snark-verifier = { git = "https://github.com/zkonduit/snark-verifier", branch = "ac/chunked-mv-lookup", features = [
+    "derive_serde",
+] }
+
+serde = { version = "1.0.126", features = ["derive"] }
+serde_json = { version = "1.0.97", default-features = false, features = [
+    "float_roundtrip",
+    "raw_value",
+] }
+colored_json = { version = "5.0.0", default-features = false }
+bincode = { version = "1.3.3", default_features = false }
+
+
+[build-dependencies]
+uniffi = { version = "0.28", features = ["build"] }
+
+# We need to patch the following two URLs to have a consistent version throughout the project
+[patch.'https://github.com/zkonduit/halo2']
+halo2_proofs = { git = "https://github.com/zkonduit//halo2.git", package = "halo2_proofs", branch = "ac/cache-lookup-commitments" }
+
+# We need to also patch the halo2_proofs with the following URL as it is hardcoded in `ezkl` dependency list
+[patch.'https://github.com/zkonduit/halo2?branch=ac/cache-lookup-commitments#8b13a0d2a7a34d8daab010dadb2c47dfa47d37d0']
+halo2_proofs = { git = "https://github.com/zkonduit//halo2.git", package = "halo2_proofs", branch = "ac/cache-lookup-commitments" }

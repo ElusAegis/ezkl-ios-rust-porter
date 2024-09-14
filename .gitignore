@@ -1,0 +1,10 @@
+/target
+/build
+
+/MoproiOSBindings/MoproBindings.xcframework/
+/MoproiOSBindings/ios_ezkl.swift
+
+/tests/ezkl-sample/pk.key
+/tests/ezkl-sample/vk.key
+/tests/ezkl-sample/proof.json
+/tests/ezkl-sample/witness.json
