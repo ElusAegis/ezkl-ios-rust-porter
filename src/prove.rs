@@ -100,7 +100,7 @@ pub(crate) fn prove(
     //     }
     // };
 
-    let mut circuit: GraphCircuit = deserialize_circuit(&compiled_circuit)?;
+    let mut circuit: GraphCircuit = deserialize_circuit(compiled_circuit)?;
 
     circuit.load_graph_witness(&data)?;
 
@@ -263,6 +263,7 @@ impl From<ProofTypeWrapper> for ProofType {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(uniffi::Enum)]
 pub enum CheckModeWrapper {
     // SAFE is the default mode, should be always used for production

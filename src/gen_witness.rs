@@ -45,7 +45,7 @@ pub async fn gen_witness(
 ) -> Result<GraphWitness, InnerEZKLError> {
     // these aren't real values so the sanity checks are mostly meaningless
 
-    let mut circuit = deserialize_circuit(&compiled_circuit)?;
+    let mut circuit = deserialize_circuit(compiled_circuit)?;
     let data: GraphData = serde_json::from_str(&input_data)?;
     let settings = circuit.settings().clone();
 

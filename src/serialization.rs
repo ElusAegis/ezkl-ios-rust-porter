@@ -13,7 +13,7 @@ use std::io::BufReader;
 use uniffi::deps::log::{debug, info};
 
 pub(crate) fn deserialize_circuit(compiled_circuit: &[u8]) -> Result<GraphCircuit, InnerEZKLError> {
-    let circuit: GraphCircuit = bincode::deserialize(&compiled_circuit).map_err(|e| {
+    let circuit: GraphCircuit = bincode::deserialize(compiled_circuit).map_err(|e| {
         ezkl::EZKLError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
     })?;
     Ok(circuit)
@@ -22,7 +22,7 @@ pub(crate) fn deserialize_circuit(compiled_circuit: &[u8]) -> Result<GraphCircui
 /// Deserialize a verification key from a byte vector.
 /// Currently only supports `RawBytes` format, which is the EZKL default format.
 /// TODO - consider allowing other formats.
-pub(crate) fn deserialize_vk<Scheme: CommitmentScheme, C: Circuit<Scheme::Scalar>>(
+pub(crate) fn deserialize_vk<Scheme: CommitmentScheme, C>(
     serialised_vk: &[u8],
     params: <C as Circuit<Scheme::Scalar>>::Params,
 ) -> Result<VerifyingKey<Scheme::Curve>, PfsysError>
@@ -47,7 +47,7 @@ where
 /// Deserialize a proving key from a byte vector.
 /// Currently only supports `RawBytes` format, which is the EZKL default format.
 /// TODO - consider allowing other formats.
-pub(crate) fn deserialize_pk<Scheme: CommitmentScheme, C: Circuit<Scheme::Scalar>>(
+pub(crate) fn deserialize_pk<Scheme: CommitmentScheme, C>(
     serialised_pk: &[u8],
     params: <C as Circuit<Scheme::Scalar>>::Params,
 ) -> Result<ProvingKey<Scheme::Curve>, PfsysError>

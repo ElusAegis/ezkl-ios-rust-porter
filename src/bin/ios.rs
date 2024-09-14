@@ -25,13 +25,14 @@ pub fn build() {
         std::env::var("CARGO_MANIFEST_DIR").unwrap_or(cwd.to_str().unwrap().to_string());
     let build_dir = format!("{}/build", manifest_dir);
     let build_dir_path = Path::new(&build_dir);
-    let work_dir = mktemp_local(&build_dir_path);
+    let work_dir = mktemp_local(build_dir_path);
     let swift_bindings_dir = work_dir.join(Path::new("SwiftBindings"));
     let bindings_out = work_dir.join("MoproiOSBindings");
     fs::create_dir(&bindings_out).expect("Failed to create bindings out directory");
     let bindings_dest = Path::new(&manifest_dir).join("MoproiOSBindings");
     let framework_out = bindings_out.join("MoproBindings.xcframework");
 
+    #[allow(clippy::useless_vec)]
     let target_archs = vec![
         vec!["aarch64-apple-ios"],
         vec!["aarch64-apple-ios-sim", "x86_64-apple-ios"],
@@ -81,7 +82,7 @@ pub fn build() {
         }
         // now lipo the libraries together
         let mut lipo_cmd = Command::new("lipo");
-        let lib_out = mktemp_local(&build_dir_path).join("libios_ezkl.a");
+        let lib_out = mktemp_local(build_dir_path).join("libios_ezkl.a");
         lipo_cmd
             .arg("-create")
             .arg("-output")
@@ -100,8 +101,8 @@ pub fn build() {
 
     write_bindings_swift(&swift_bindings_dir);
     fs::rename(
-        &swift_bindings_dir.join("ios_ezkl.swift"),
-        &bindings_out.join("ios_ezkl.swift"),
+        swift_bindings_dir.join("ios_ezkl.swift"),
+        bindings_out.join("ios_ezkl.swift"),
     )
     .expect("Failed to move ios_ezkl.swift into place");
     let out_lib_paths: Vec<PathBuf> = target_archs
@@ -133,7 +134,7 @@ pub fn build() {
     }
     fs::rename(&bindings_out, &bindings_dest).expect("Failed to move framework into place");
     // Copy the mopro.swift file to the output directory
-    cleanup_tmp_local(&build_dir_path)
+    cleanup_tmp_local(build_dir_path)
 }
 
 pub fn write_bindings_swift(out_dir: &Path) {
@@ -169,7 +170,7 @@ fn tmp_local(build_path: &Path) -> PathBuf {
 }
 
 pub fn mktemp_local(build_path: &Path) -> PathBuf {
-    let dir = tmp_local(build_path).join(&Uuid::new_v4().to_string());
+    let dir = tmp_local(build_path).join(Uuid::new_v4().to_string());
     fs::create_dir(&dir).expect("Failed to create tmpdir");
     dir
 }
@@ -196,7 +197,7 @@ pub fn install_arch(arch: String) {
         .spawn()
         .expect("Failed to spawn rustup, is it installed?")
         .wait()
-        .expect(format!("Failed to install target architecture {}", arch).as_str());
+        .unwrap_or_else(|_| panic!("Failed to install target architecture {}", arch));
 }
 
 pub fn install_archs() {
