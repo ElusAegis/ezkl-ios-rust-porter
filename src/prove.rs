@@ -1,5 +1,5 @@
 use crate::util::{
-    load_params_prover, EZKLError, IPAAccumulatorStrategy, IPASingleStrategy,
+    deserialize_params_prover, EZKLError, IPAAccumulatorStrategy, IPASingleStrategy,
     KZGAccumulatorStrategy, KZGSingleStrategy,
 };
 use ezkl::circuit::CheckMode;
@@ -31,13 +31,12 @@ pub fn prove_advanced_wrapper(
     witness_json: String,
     compiled_circuit_path: String,
     pk_path: String,
-    srs_path: Option<String>,
+    serialised_srs: Vec<u8>,
     proof_type: ProofTypeWrapper,
     check_mode: CheckModeWrapper,
 ) -> Result<String, EZKLError> {
     let compiled_circuit_path = PathBuf::from(compiled_circuit_path);
     let pk_path = PathBuf::from(pk_path);
-    let srs_path = srs_path.map(PathBuf::from);
     let proof_type = proof_type.into();
     let check_mode = check_mode.into();
 
@@ -46,7 +45,7 @@ pub fn prove_advanced_wrapper(
         None,
         compiled_circuit_path,
         pk_path,
-        srs_path,
+        Some(&serialised_srs),
         proof_type,
         check_mode,
     );
@@ -65,13 +64,13 @@ pub fn prove_wrapper(
     witness_json: String,
     compiled_circuit_path: String,
     pk_path: String,
-    srs_path: Option<String>,
+    serialised_srs: Vec<u8>,
 ) -> Result<String, EZKLError> {
     prove_advanced_wrapper(
         witness_json,
         compiled_circuit_path,
         pk_path,
-        srs_path,
+        serialised_srs,
         ProofTypeWrapper::Single,
         CheckModeWrapper::SAFE,
     )
@@ -82,7 +81,7 @@ pub(crate) fn prove(
     witness_path: Option<PathBuf>,
     compiled_circuit_path: PathBuf, // bincode::deserialize_from
     pk_path: PathBuf,               // byte vector reader
-    srs_path: Option<PathBuf>,      // byte vector reader
+    serialised_srs: Option<&[u8]>,
     proof_type: ProofType,
     check_mode: CheckMode,
 ) -> Result<Snark<Fr, G1Affine>, InnerEZKLError> {
@@ -118,7 +117,8 @@ pub(crate) fn prove(
             let pk =
                 load_pk::<KZGCommitmentScheme<Bn256>, GraphCircuit>(pk_path, circuit.params())?;
 
-            let params = load_params_prover::<KZGCommitmentScheme<Bn256>>(srs_path, logrows)?;
+            let params =
+                deserialize_params_prover::<KZGCommitmentScheme<Bn256>>(serialised_srs, logrows)?;
             match strategy {
                 StrategyType::Single => create_proof_circuit::<
                     KZGCommitmentScheme<Bn256>,
@@ -174,8 +174,8 @@ pub(crate) fn prove(
             let pk =
                 load_pk::<IPACommitmentScheme<G1Affine>, GraphCircuit>(pk_path, circuit.params())?;
 
-            let params = load_params_prover::<IPACommitmentScheme<G1Affine>>(
-                srs_path,
+            let params = deserialize_params_prover::<IPACommitmentScheme<G1Affine>>(
+                serialised_srs,
                 circuit_settings.run_args.logrows,
             )?;
             match strategy {

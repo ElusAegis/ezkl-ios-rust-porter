@@ -1,14 +1,12 @@
-use crate::util::{load_params_prover, EZKLError};
+use crate::util::{deserialise_vk, deserialize_params_prover, EZKLError};
 use colored_json::ToColoredJson;
 use ezkl::circuit::region::RegionSettings;
 use ezkl::graph::input::GraphData;
 use ezkl::graph::{GraphCircuit, GraphWitness};
-use ezkl::pfsys::load_vk;
 use ezkl::{Commitments, EZKLError as InnerEZKLError};
 use halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
 use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-use std::path::PathBuf;
 use std::time::Instant;
 use uniffi::deps::log::{debug, trace, warn};
 use uniffi::export;
@@ -29,7 +27,7 @@ pub async fn gen_witness_wrapper(
     srs: Vec<u8>,
 ) -> Result<String, EZKLError> {
     // Call `gen_witness`
-    let witness = gen_witness(compiled_circuit, input_json, Some(vk), Some(srs)).await;
+    let witness = gen_witness(&compiled_circuit, input_json, Some(&vk), Some(&srs)).await;
 
     match witness {
         Ok(graph) => graph.as_json().map_err(|e| e.into()),
@@ -39,19 +37,21 @@ pub async fn gen_witness_wrapper(
 }
 
 pub async fn gen_witness(
-    compiled_circuit: Vec<u8>, // bincode::deserialize_from
+    compiled_circuit: &[u8],
     input_data: String,
-    serialised_vk: Option<Vec<u8>>,  // byte vector reader
-    serialised_srs: Option<Vec<u8>>, // byte vector reader
+    serialised_vk: Option<&[u8]>,
+    serialised_srs: Option<&[u8]>,
 ) -> Result<GraphWitness, InnerEZKLError> {
     // these aren't real values so the sanity checks are mostly meaningless
 
-    let mut circuit = bincode::deserialize(&compiled_circuit)?;
+    let mut circuit: GraphCircuit = bincode::deserialize(&compiled_circuit).map_err(|e| {
+        ezkl::EZKLError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
+    })?;
     let data: GraphData = serde_json::from_str(&input_data)?;
     let settings = circuit.settings().clone();
 
     let vk = if let Some(vk) = serialised_vk {
-        Some(load_vk::<KZGCommitmentScheme<Bn256>, GraphCircuit>(
+        Some(deserialise_vk::<KZGCommitmentScheme<Bn256>, GraphCircuit>(
             vk,
             settings.clone(),
         )?)
@@ -67,12 +67,13 @@ pub async fn gen_witness(
 
     let start_time = Instant::now();
     let witness = if settings.module_requires_polycommit() {
-        if srs_path.is_some() {
+        if serialised_srs.is_some() {
             match Commitments::from(settings.run_args.commitment) {
                 Commitments::KZG => {
-                    let srs: ParamsKZG<Bn256> = load_params_prover::<KZGCommitmentScheme<Bn256>>(
-                        srs_path.clone(),
-                        settings.run_args.logrows,
+                    let srs: ParamsKZG<Bn256> = deserialize_params_prover::<
+                        KZGCommitmentScheme<Bn256>,
+                    >(
+                        serialised_srs, settings.run_args.logrows
                     )?;
                     circuit.forward::<KZGCommitmentScheme<_>>(
                         &mut input,
@@ -82,10 +83,10 @@ pub async fn gen_witness(
                     )?
                 }
                 Commitments::IPA => {
-                    let srs: ParamsIPA<G1Affine> = load_params_prover::<
+                    let srs: ParamsIPA<G1Affine> = deserialize_params_prover::<
                         IPACommitmentScheme<G1Affine>,
                     >(
-                        srs_path.clone(), settings.run_args.logrows
+                        serialised_srs, settings.run_args.logrows
                     )?;
                     circuit.forward::<IPACommitmentScheme<_>>(
                         &mut input,

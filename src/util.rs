@@ -1,24 +1,26 @@
-use ezkl::pfsys::srs::load_srs_prover;
-use ezkl::{EZKLError as InnerEZKLError, EZKL_BUF_CAPACITY, EZKL_KEY_FORMAT};
+use ezkl::pfsys::srs::SrsError;
+use ezkl::pfsys::PfsysError;
+use ezkl::{EZKLError as InnerEZKLError, EZKL_BUF_CAPACITY};
+use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::halo2curves::ff::{FromUniformBytes, PrimeField};
+use halo2_proofs::halo2curves::serde::SerdeObject;
+use halo2_proofs::plonk::{Circuit, VerifyingKey};
 use halo2_proofs::poly::commitment::{CommitmentScheme, Params};
 pub(crate) use halo2_proofs::poly::ipa::strategy::AccumulatorStrategy as IPAAccumulatorStrategy;
 pub(crate) use halo2_proofs::poly::ipa::strategy::SingleStrategy as IPASingleStrategy;
 pub(crate) use halo2_proofs::poly::kzg::strategy::AccumulatorStrategy as KZGAccumulatorStrategy;
 pub(crate) use halo2_proofs::poly::kzg::strategy::SingleStrategy as KZGSingleStrategy;
+use halo2_proofs::SerdeFormat::RawBytes;
 use std::fmt::Display;
-use std::fs::File;
+use std::io;
 use std::io::BufReader;
-use std::path::PathBuf;
-use ezkl::pfsys::PfsysError;
-use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::halo2curves::ff::{FromUniformBytes, PrimeField};
-use halo2_proofs::halo2curves::serde::SerdeObject;
-use halo2_proofs::plonk::{Circuit, VerifyingKey};
 use uniffi::deps::log::{debug, info};
 
-/// Deserialise a verification key from a byte
+/// Deserialize a verification key from a byte vector.
+/// Currently only supports `RawBytes` format, which is the EZKL default format.
+/// TODO - consider allowing other formats.
 pub fn deserialise_vk<Scheme: CommitmentScheme, C: Circuit<Scheme::Scalar>>(
-    path: PathBuf,
+    serialised_vk: &[u8],
     params: <C as Circuit<Scheme::Scalar>>::Params,
 ) -> Result<VerifyingKey<Scheme::Curve>, PfsysError>
 where
@@ -26,27 +28,32 @@ where
     Scheme::Curve: SerdeObject + CurveAffine,
     Scheme::Scalar: PrimeField + SerdeObject + FromUniformBytes<64>,
 {
-    debug!("loading verification key from {:?}", path);
-    let f = File::open(path.clone()).map_err(|e| PfsysError::LoadVk(format!("{}", e)))?;
-    let mut reader = BufReader::with_capacity(*EZKL_BUF_CAPACITY, f);
+    debug!("deserializing verification key...");
+    let cursor = std::io::Cursor::new(serialised_vk);
+    let mut reader = BufReader::with_capacity(*EZKL_BUF_CAPACITY, cursor);
     let vk = VerifyingKey::<Scheme::Curve>::read::<_, C>(
         &mut reader,
-        serde_format_from_str(&EZKL_KEY_FORMAT),
+        RawBytes, // TODO - consider allowing other formats
         params,
     )
     .map_err(|e| PfsysError::LoadVk(format!("{}", e)))?;
-    info!("loaded verification key ✅");
+    info!("deserialized verification key ✅");
     Ok(vk)
 }
 
-pub(crate) fn load_params_prover<Scheme: CommitmentScheme>(
-    srs_path: Option<PathBuf>,
+pub(crate) fn deserialize_params_prover<Scheme: CommitmentScheme>(
+    serialised_srs: Option<&[u8]>,
     logrows: u32,
 ) -> Result<Scheme::ParamsProver, InnerEZKLError> {
-    let srs_path = srs_path.ok_or(InnerEZKLError::UncategorizedError(
-        "SRS path must be provided".to_string(),
-    ))?;
-    let mut params = load_srs_prover::<Scheme>(srs_path)?;
+    let srs_path = serialised_srs.ok_or(InnerEZKLError::IoError(io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "SRS must be provided",
+    )))?;
+
+    let cursor = std::io::Cursor::new(srs_path);
+    let mut reader = BufReader::new(cursor);
+    let mut params: Scheme::ParamsProver = Params::<'_, Scheme::Curve>::read(&mut reader)
+        .map_err(|e| SrsError::ReadError(e.to_string()))?;
     if logrows < params.k() {
         info!("downsizing params to {} logrows", logrows);
         params.downsize(logrows);
@@ -76,7 +83,7 @@ impl From<InnerEZKLError> for EZKLError {
 }
 
 pub(crate) mod testing {
-    use crate::util::load_params_prover;
+    use crate::util::deserialize_params_prover;
     use ezkl::graph::{GraphCircuit, GraphWitness};
     use ezkl::pfsys::{create_keys, save_pk, save_vk};
     use ezkl::Commitments;
@@ -87,7 +94,7 @@ pub(crate) mod testing {
 
     pub fn setup_keys(
         compiled_circuit: PathBuf,
-        srs_path: Option<PathBuf>,
+        serialized_srs: Option<&[u8]>,
         vk_path: PathBuf,
         pk_path: PathBuf,
         witness: Option<PathBuf>,
@@ -107,7 +114,10 @@ pub(crate) mod testing {
 
         let pk = match commitment {
             Commitments::KZG => {
-                let params = load_params_prover::<KZGCommitmentScheme<Bn256>>(srs_path, logrows)?;
+                let params = deserialize_params_prover::<KZGCommitmentScheme<Bn256>>(
+                    serialized_srs,
+                    logrows,
+                )?;
                 create_keys::<KZGCommitmentScheme<Bn256>, GraphCircuit>(
                     &circuit,
                     &params,
@@ -115,8 +125,10 @@ pub(crate) mod testing {
                 )?
             }
             Commitments::IPA => {
-                let params =
-                    load_params_prover::<IPACommitmentScheme<G1Affine>>(srs_path, logrows)?;
+                let params = deserialize_params_prover::<IPACommitmentScheme<G1Affine>>(
+                    serialized_srs,
+                    logrows,
+                )?;
                 create_keys::<IPACommitmentScheme<G1Affine>, GraphCircuit>(
                     &circuit,
                     &params,
