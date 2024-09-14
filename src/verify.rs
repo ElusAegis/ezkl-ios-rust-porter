@@ -1,16 +1,15 @@
-use crate::util::KZGSingleStrategy;
-use crate::util::{EZKLError, IPASingleStrategy};
+use crate::serialization::{deserialize_params_verifier, deserialize_vk};
+use crate::{EZKLError, IPASingleStrategy, KZGSingleStrategy};
 use ezkl::graph::{GraphCircuit, GraphSettings};
 use ezkl::pfsys::evm::aggregation_kzg::PoseidonTranscript;
-use ezkl::pfsys::srs::load_srs_verifier;
-use ezkl::pfsys::{load_vk, verify_proof_circuit, Snark, TranscriptType};
+use ezkl::pfsys::{verify_proof_circuit, Snark, TranscriptType};
 use ezkl::{Commitments, EZKLError as InnerEZKLError};
-use halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::ff::{FromUniformBytes, WithSmallOrderMulGroup};
 use halo2_proofs::halo2curves::serde::SerdeObject;
 use halo2_proofs::plonk;
 use halo2_proofs::plonk::Circuit;
-use halo2_proofs::poly::commitment::{CommitmentScheme, Params, Verifier};
+use halo2_proofs::poly::commitment::{CommitmentScheme, Verifier};
 use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
 use halo2_proofs::poly::ipa::multiopen::VerifierIPA;
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
@@ -22,63 +21,57 @@ use serde::Serialize;
 use snark_verifier::loader::native::NativeLoader;
 use snark_verifier::system::halo2::transcript::evm::EvmTranscript;
 use std::io::Cursor;
-use std::path::PathBuf;
 use std::time::Instant;
 use uniffi::deps::log::info;
 use uniffi::export;
 
+/// Verify a proof with the given parameters
+///
+/// # Arguments
+/// proof_json: String - JSON string representing the proof to be verified.
+/// settings_json: String - JSON string representing the settings for the circuit.
+/// vk: Vec<Bytes> - Verification key binary.
+/// srs: Vec<Bytes> - Structured reference string binary.
 #[export]
 pub fn verify_wrapper(
     proof_json: String,
-    settings_path: String,
-    vk_path: String,
-    srs_path: Option<String>,
+    settings_json: String,
+    vk: Vec<u8>,
+    srs: Vec<u8>,
 ) -> Result<bool, EZKLError> {
-    let settings_path = PathBuf::from(settings_path);
-    let vk_path = PathBuf::from(vk_path);
-    let srs_path = srs_path.map(PathBuf::from);
-
-    verify(
-        Some(proof_json),
-        None,
-        settings_path,
-        vk_path,
-        srs_path,
-        false,
-    )
-    .map_err(|e| e.into())
+    verify(proof_json, settings_json, &vk, Some(&srs), false).map_err(|e| e.into())
 }
 
 pub(crate) fn verify(
-    proof_json: Option<String>,
-    proof_path: Option<PathBuf>,
-    settings_path: PathBuf,    // JSON
-    vk_path: PathBuf,          // byte vector reader
-    srs_path: Option<PathBuf>, // byte vector reader
+    proof_json: String,
+    settings_json: String,
+    serialised_vk: &[u8],
+    serialised_srs: Option<&[u8]>,
     reduced_srs: bool,
 ) -> Result<bool, InnerEZKLError> {
-    let circuit_settings = GraphSettings::load(&settings_path)?;
+    let circuit_settings = GraphSettings::from_json(&settings_json)?;
 
     let logrows = circuit_settings.run_args.logrows;
     let commitment = circuit_settings.run_args.commitment.into();
 
     match commitment {
         Commitments::KZG => {
-            let proof = match (&proof_json, &proof_path) {
-                (None, Some(proof_path)) => Snark::load::<KZGCommitmentScheme<Bn256>>(&proof_path),
-                (Some(proof_json), None) => Ok(serde_json::from_str(proof_json)?),
-                _ => {
-                    return Err(InnerEZKLError::IoError(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "Proof must be provided in one of the two ways: json or path",
-                    )))
-                }
-            }?;
+            let proof: Snark<Fr, G1Affine> = serde_json::from_str(&proof_json)?;
+
+            //     (None, Some(proof_path)) => Snark::load::<KZGCommitmentScheme<Bn256>>(&proof_path),
+            //     (Some(proof_json), None) => Ok(serde_json::from_str(proof_json)?),
+            //     _ => {
+            //         return Err(InnerEZKLError::IoError(std::io::Error::new(
+            //             std::io::ErrorKind::InvalidInput,
+            //             "Proof must be provided in one of the two ways: json or path",
+            //         )))
+            //     }
+            // }?;
             let params: ParamsKZG<Bn256> = if reduced_srs {
                 // only need G_0 for the verification with shplonk
-                load_params_verifier::<KZGCommitmentScheme<Bn256>>(srs_path, 1)?
+                deserialize_params_verifier::<KZGCommitmentScheme<Bn256>>(serialised_srs, 1)?
             } else {
-                load_params_verifier::<KZGCommitmentScheme<Bn256>>(srs_path, logrows)?
+                deserialize_params_verifier::<KZGCommitmentScheme<Bn256>>(serialised_srs, logrows)?
             };
             match proof.transcript_type {
                 TranscriptType::EVM => verify_commitment::<
@@ -91,9 +84,8 @@ pub(crate) fn verify(
                     _,
                 >(
                     proof_json,
-                    proof_path,
                     circuit_settings,
-                    vk_path,
+                    serialised_vk,
                     &params,
                     logrows,
                 ),
@@ -107,29 +99,20 @@ pub(crate) fn verify(
                     _,
                 >(
                     proof_json,
-                    proof_path,
                     circuit_settings,
-                    vk_path,
+                    serialised_vk,
                     &params,
                     logrows,
                 ),
             }
         }
         Commitments::IPA => {
-            let proof = match (&proof_json, &proof_path) {
-                (None, Some(proof_path)) => {
-                    Snark::load::<IPACommitmentScheme<G1Affine>>(&proof_path)
-                }
-                (Some(proof_json), None) => Ok(serde_json::from_str(proof_json)?),
-                _ => {
-                    return Err(InnerEZKLError::IoError(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "Proof must be provided in one of the two ways: json or path",
-                    )))
-                }
-            }?;
-            let params: ParamsIPA<_> =
-                load_params_verifier::<IPACommitmentScheme<G1Affine>>(srs_path, logrows)?;
+            let proof: Snark<Fr, G1Affine> = serde_json::from_str(&proof_json)?;
+
+            let params: ParamsIPA<_> = deserialize_params_verifier::<IPACommitmentScheme<G1Affine>>(
+                serialised_srs,
+                logrows,
+            )?;
             match proof.transcript_type {
                 TranscriptType::EVM => verify_commitment::<
                     IPACommitmentScheme<G1Affine>,
@@ -141,9 +124,8 @@ pub(crate) fn verify(
                     _,
                 >(
                     proof_json,
-                    proof_path,
                     circuit_settings,
-                    vk_path,
+                    serialised_vk,
                     &params,
                     logrows,
                 ),
@@ -157,31 +139,14 @@ pub(crate) fn verify(
                     _,
                 >(
                     proof_json,
-                    proof_path,
                     circuit_settings,
-                    vk_path,
+                    serialised_vk,
                     &params,
                     logrows,
                 ),
             }
         }
     }
-}
-
-fn load_params_verifier<Scheme: CommitmentScheme>(
-    srs_path: Option<PathBuf>,
-    logrows: u32,
-) -> Result<Scheme::ParamsVerifier, InnerEZKLError> {
-    let srs_path = srs_path.ok_or(InnerEZKLError::IoError(std::io::Error::new(
-        std::io::ErrorKind::InvalidInput,
-        "SRS path must be provided",
-    )))?;
-    let mut params = load_srs_verifier::<Scheme>(srs_path)?;
-    if logrows < params.k() {
-        info!("downsizing params to {} logrows", logrows);
-        params.downsize(logrows);
-    }
-    Ok(params)
 }
 
 fn verify_commitment<
@@ -194,10 +159,9 @@ fn verify_commitment<
     C: Circuit<<Scheme as CommitmentScheme>::Scalar, Params = Params>,
     Params,
 >(
-    proof_json: Option<String>,
-    proof_path: Option<PathBuf>,
+    proof_json: String,
     settings: Params,
-    vk_path: PathBuf,
+    serialized_vk: &[u8],
     params: &'a Scheme::ParamsVerifier,
     logrows: u32,
 ) -> Result<bool, InnerEZKLError>
@@ -210,19 +174,10 @@ where
     Scheme::Curve: SerdeObject + Serialize + DeserializeOwned,
     Scheme::ParamsVerifier: 'a,
 {
-    let proof = match (proof_json, proof_path) {
-        (None, Some(proof_path)) => Snark::load::<Scheme>(&proof_path),
-        (Some(proof_json), None) => Ok(serde_json::from_str(&proof_json)?),
-        _ => {
-            return Err(InnerEZKLError::IoError(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Proof must be provided in one of the two ways: json or path",
-            )))
-        }
-    }?;
+    let proof: Snark<Scheme::Scalar, Scheme::Curve> = serde_json::from_str(&proof_json)?;
 
     let strategy = Strategy::new(params);
-    let vk = load_vk::<Scheme, C>(vk_path, settings)?;
+    let vk = deserialize_vk::<Scheme, C>(serialized_vk, settings)?;
     let now = Instant::now();
 
     let result =

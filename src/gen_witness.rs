@@ -1,4 +1,5 @@
-use crate::util::{deserialise_vk, deserialize_params_prover, EZKLError};
+use crate::serialization::{deserialize_circuit, deserialize_params_prover, deserialize_vk};
+use crate::EZKLError;
 use colored_json::ToColoredJson;
 use ezkl::circuit::region::RegionSettings;
 use ezkl::graph::input::GraphData;
@@ -44,14 +45,12 @@ pub async fn gen_witness(
 ) -> Result<GraphWitness, InnerEZKLError> {
     // these aren't real values so the sanity checks are mostly meaningless
 
-    let mut circuit: GraphCircuit = bincode::deserialize(&compiled_circuit).map_err(|e| {
-        ezkl::EZKLError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
-    })?;
+    let mut circuit = deserialize_circuit(&compiled_circuit)?;
     let data: GraphData = serde_json::from_str(&input_data)?;
     let settings = circuit.settings().clone();
 
     let vk = if let Some(vk) = serialised_vk {
-        Some(deserialise_vk::<KZGCommitmentScheme<Bn256>, GraphCircuit>(
+        Some(deserialize_vk::<KZGCommitmentScheme<Bn256>, GraphCircuit>(
             vk,
             settings.clone(),
         )?)

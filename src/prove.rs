@@ -1,12 +1,11 @@
-use crate::util::{
-    deserialize_params_prover, EZKLError, IPAAccumulatorStrategy, IPASingleStrategy,
-    KZGAccumulatorStrategy, KZGSingleStrategy,
-};
+use crate::serialization::{deserialize_circuit, deserialize_params_prover, deserialize_pk};
+use crate::EZKLError;
+use crate::{IPAAccumulatorStrategy, IPASingleStrategy, KZGAccumulatorStrategy, KZGSingleStrategy};
 use ezkl::circuit::CheckMode;
 use ezkl::graph::{GraphCircuit, GraphWitness};
 use ezkl::pfsys::evm::aggregation_kzg::PoseidonTranscript;
 use ezkl::pfsys::{
-    create_proof_circuit, load_pk, ProofSplitCommit, ProofType, Snark, StrategyType, TranscriptType,
+    create_proof_circuit, ProofSplitCommit, ProofType, Snark, StrategyType, TranscriptType,
 };
 use ezkl::{Commitments, EZKLError as InnerEZKLError};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
@@ -18,36 +17,59 @@ use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
 use snark_verifier::loader::native::NativeLoader;
 use snark_verifier::system::halo2::transcript::evm::EvmTranscript;
 use snark_verifier::system::halo2::{compile, Config};
-use std::path::PathBuf;
 use uniffi::export;
 
 /// Proves a circuit with the given witness and parameters
+/// This function is used for default proving configurations to abstract the configuration details
+///
+/// # Arguments
+/// witness_json: String - JSON string representing the witness generated for the circuit input.
+/// compiled_circuit: Vec<Bytes> - Compiled circuit binary.
+/// vk: Vec<Bytes> - Verification key binary.
+/// srs: Vec<Bytes> - Structured reference string binary.
+#[export]
+pub fn prove_wrapper(
+    witness_json: String,
+    compiled_circuit: Vec<u8>,
+    pk: Vec<u8>,
+    srs: Vec<u8>,
+) -> Result<String, EZKLError> {
+    prove_advanced_wrapper(
+        witness_json,
+        compiled_circuit,
+        pk,
+        srs,
+        ProofTypeWrapper::Single,
+        CheckModeWrapper::SAFE,
+    )
+}
+
+/// Proves a circuit with the given witness and parameters
 /// This function is used for advanced proving configurations
-/// It allows to specify the proof type and check mode
-/// 1. Proof type: Single (default) or ForAggr, where Single is the default mode, and ForAggr is used for proof aggregation
-/// 2. Check mode: SAFE (default) or UNSAFE, where SAFE is the default mode, and UNSAFE is used for debugging purposes
+///
+/// # Arguments
+/// witness_json: String - JSON string representing the witness generated for the circuit input.
+/// compiled_circuit: Vec<Bytes> - Compiled circuit binary.
+/// vk: Vec<Bytes> - Verification key binary.
+/// srs: Vec<Bytes> - Structured reference string binary.
+/// proof_type: ProofTypeWrapper - Proof type to be used for proving. Default is Single. ForAggr is used for aggregation proofs.
+/// check_mode: CheckModeWrapper - Check mode to be used for proving. Default is SAFE. UNSAFE is used for unsafe proving useful for debugging.
 #[export]
 pub fn prove_advanced_wrapper(
     witness_json: String,
-    compiled_circuit_path: String,
-    pk_path: String,
-    serialised_srs: Vec<u8>,
+    compiled_circuit: Vec<u8>,
+    pk: Vec<u8>,
+    srs: Vec<u8>,
     proof_type: ProofTypeWrapper,
     check_mode: CheckModeWrapper,
 ) -> Result<String, EZKLError> {
-    let compiled_circuit_path = PathBuf::from(compiled_circuit_path);
-    let pk_path = PathBuf::from(pk_path);
-    let proof_type = proof_type.into();
-    let check_mode = check_mode.into();
-
     let proof = prove(
-        Some(witness_json),
-        None,
-        compiled_circuit_path,
-        pk_path,
-        Some(&serialised_srs),
-        proof_type,
-        check_mode,
+        witness_json,
+        &compiled_circuit,
+        &pk,
+        Some(&srs),
+        proof_type.into(),
+        check_mode.into(),
     );
 
     match proof {
@@ -57,46 +79,28 @@ pub fn prove_advanced_wrapper(
     .map_err(|e| e.into())
 }
 
-/// Proves a circuit with the given witness and parameters
-/// This function is used for default proving configurations to abstract the configuration details
-#[export]
-pub fn prove_wrapper(
-    witness_json: String,
-    compiled_circuit_path: String,
-    pk_path: String,
-    serialised_srs: Vec<u8>,
-) -> Result<String, EZKLError> {
-    prove_advanced_wrapper(
-        witness_json,
-        compiled_circuit_path,
-        pk_path,
-        serialised_srs,
-        ProofTypeWrapper::Single,
-        CheckModeWrapper::SAFE,
-    )
-}
-
 pub(crate) fn prove(
-    witness_json: Option<String>,
-    witness_path: Option<PathBuf>,
-    compiled_circuit_path: PathBuf, // bincode::deserialize_from
-    pk_path: PathBuf,               // byte vector reader
+    witness_json: String,
+    compiled_circuit: &[u8],
+    serialized_pk: &[u8],
     serialised_srs: Option<&[u8]>,
     proof_type: ProofType,
     check_mode: CheckMode,
 ) -> Result<Snark<Fr, G1Affine>, InnerEZKLError> {
-    let data = match (witness_json, witness_path) {
-        (Some(json), None) => serde_json::from_str(&json)?,
-        (None, Some(path)) => GraphWitness::from_path(path)?,
-        _ => {
-            return Err(InnerEZKLError::IoError(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Witness must be provided in one of the two ways: json or path",
-            )))
-        }
-    };
+    let data: GraphWitness = serde_json::from_str(&witness_json)?;
+    //
+    // match (witness_json, witness_path) {
+    //     (Some(json), None) =>
+    //     (None, Some(path)) => GraphWitness::from_path(path)?,
+    //     _ => {
+    //         return Err(InnerEZKLError::IoError(std::io::Error::new(
+    //             std::io::ErrorKind::InvalidInput,
+    //             "Witness must be provided in one of the two ways: json or path",
+    //         )))
+    //     }
+    // };
 
-    let mut circuit = GraphCircuit::load(compiled_circuit_path)?;
+    let mut circuit: GraphCircuit = deserialize_circuit(&compiled_circuit)?;
 
     circuit.load_graph_witness(&data)?;
 
@@ -114,8 +118,10 @@ pub(crate) fn prove(
     // creates and verifies the proof
     let mut snark = match commitment {
         Commitments::KZG => {
-            let pk =
-                load_pk::<KZGCommitmentScheme<Bn256>, GraphCircuit>(pk_path, circuit.params())?;
+            let pk = deserialize_pk::<KZGCommitmentScheme<Bn256>, GraphCircuit>(
+                serialized_pk,
+                circuit.params(),
+            )?;
 
             let params =
                 deserialize_params_prover::<KZGCommitmentScheme<Bn256>>(serialised_srs, logrows)?;
@@ -171,8 +177,10 @@ pub(crate) fn prove(
             }
         }
         Commitments::IPA => {
-            let pk =
-                load_pk::<IPACommitmentScheme<G1Affine>, GraphCircuit>(pk_path, circuit.params())?;
+            let pk = deserialize_pk::<IPACommitmentScheme<G1Affine>, GraphCircuit>(
+                serialized_pk,
+                circuit.params(),
+            )?;
 
             let params = deserialize_params_prover::<IPACommitmentScheme<G1Affine>>(
                 serialised_srs,
