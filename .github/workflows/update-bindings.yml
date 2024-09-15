@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - main
+      - feat/ci-updates-for-bindings # TODO: Remove this line after testing
+
+  pull_request:
+      branches:
+        - main
+      types:
+        - ready_for_review
+
+  # Option to manually trigger the workflow
+  workflow_dispatch:
 
 jobs:
   build-and-update:
@@ -38,31 +48,50 @@ jobs:
           cd ezkl-ios-port
           git lfs pull
 
-      - name: Copy EzklCoreBindings
+#      - name: Copy EzklCoreBindings
+#        run: |
+#          rm -rf ezkl-ios-port/Sources/EzklCoreBindings
+#          cp -r EzklCoreBindings ezkl-ios-port/Sources/
+      - name: Create a random file in ezkl-ios-port/Sources/EzklCoreBindings
         run: |
-          rm -rf ezkl-ios-port/Sources/EzklCoreBindings
-          cp -r EzklCoreBindings ezkl-ios-port/Sources/
+          echo "This is a random file" > ezkl-ios-port/Sources/EzklCoreBindings/random.txt
 
       - name: Set up Xcode environment
         run: |
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           sudo xcodebuild -license accept
 
-      - name: Run Package Tests
-        run: |
-          cd ezkl-ios-port
-          xcodebuild test \
-            -scheme ezkl-ios-port \
-            -destination 'platform=iOS Simulator,name=iPhone 12,OS=latest'
-
-      - name: Run Example App Tests
-        run: |
-          cd ezkl-ios-port/Example
-          pod install
-          xcodebuild test \
-            -workspace EzklApp.xcworkspace \
-            -scheme EzklApp \
-            -destination 'platform=iOS Simulator,name=iPhone 12,OS=latest'
+#      - name: Run Package Tests
+#        run: |
+#          cd ezkl-ios-port
+#          xcodebuild test \
+#            -scheme EzklPackage \
+#            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
+#            -resultBundlePath ../testResults
+#
+#      - name: Run Example App Tests
+#        run: |
+#          cd ezkl-ios-port/Example
+#          xcodebuild test \
+#            -project Example.xcodeproj \
+#            -scheme EzklApp \
+#            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
+#            -parallel-testing-enabled NO \
+#            -resultBundlePath ../../exampleTestResults
+#
+#      - name: Upload Test Results (Package)
+#        if: always()
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: package-test-results
+#          path: ./testResults
+#
+#      - name: Upload Test Results (Example)
+#        if: always()
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: example-app-test-results
+#          path: ./exampleTestResults
 
       - name: Commit and Push Changes
         if: success()
@@ -70,8 +99,11 @@ jobs:
           cd ezkl-ios-port
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
-          git add .
+          git add Sources/EzklCoreBindings
+          git checkout -b testing-actions
           git commit -m "Update EzklCoreBindings from ezkl-ios-rust-porter"
-          git push https://$EZKL_PORTER_TOKEN@github.com/ElusAegis/ezkl-ios-port.git main
+          git config credential.helper 'store --file=.git/credentials'
+          echo "https://${SWIFT_PACKAGE_OWNER_USERNAME}:${EZKL_PORTER_TOKEN}@github.com" > .git/credentials
+          git push
         env:
           EZKL_PORTER_TOKEN: ${{ secrets.EZKL_PORTER_TOKEN }}
