@@ -1,4 +1,181 @@
-# iOS Wrapper for EZKL
+# EZKL iOS Bindings Generator
 
-This is a Swift wrapper for the [EZKL](https://ezkl.xyz) library. It is a work in progress and is not yet ready for
-production use.
+Welcome to the **EZKL iOS Bindings Generator** repository! This project provides Swift bindings for
+the [EZKL](https://ezkl.xyz) library, allowing you to use EZKL functionalities in your iOS and other Apple platform
+applications.
+
+> **Note:** This is an experimental project and should not be used in production environments.
+
+These bindings are utilized to create the [EZKL iOS Package](https://github.com/ElusAegis/ezkl-ios-port), which you can
+integrate into your Xcode projects using Swift Package Manager, eliminating the need to build the library from source.
+You can also see the Example App of how to use EZKL in
+iOS [here](https://github.com/ElusAegis/ezkl-ios-port/tree/main/Example).
+
+For guidance on how to use the generated bindings directly and include them in your Xcode project, please refer to
+the [ZKMopro iOS Setup Tutorial](https://zkmopro.org/docs/getting-started/ios-setup). This project is largely based on
+the work done in [Mopro](https://zkmopro.org).
+
+---
+
+## Overview
+
+The primary goal of this project is to make the EZKL library, originally written in Rust, accessible from Swift code on
+iOS and other Apple platforms. To achieve this, we leverage the [uniffi](https://mozilla.github.io/uniffi-rs/latest/)
+library to generate Swift-compatible bindings based on the EZKL library.
+
+### What is EZKL?
+
+[EZKL](https://ezkl.xyz) is a Rust library that enables zero-knowledge proofs for machine learning models, particularly
+neural networks. It allows you to prove that a neural network computation was performed correctly without revealing the
+inputs or the model's internal parameters.
+
+### Why Use This Bindings Generator?
+
+By using this bindings generator, developers can integrate EZKL's zero-knowledge proof capabilities directly into their
+Swift applications on iOS devices, expanding the potential for secure and private machine learning applications on
+mobile
+platforms.
+
+---
+
+## Exposed Functions
+
+The current version of the bindings exposes the following key functions from the EZKL library:
+
+- **`gen_witness`**: Generates a witness for a given input and neural network circuit.
+- **`prove`**: Generates a zero-knowledge proof for a given input and neural network circuit.
+- **`verify`**: Verifies a proof for a given input and neural network circuit.
+
+We have intentionally limited the exposed functions to those most relevant for use on the iOS platform. Other functions
+such as `gen-settings`, `gen-srs`, `compile-circuit`, and `setup` are not exposed. These functions are typically
+executed on a developer's local machine or server to prepare necessary files for use within the iOS app.
+
+### Changes from the Original EZKL
+
+The original EZKL library managed file system operations internally, often requiring file paths as inputs and outputs
+for its functions. However, this approach is not compatible with the iOS platform due to security restrictions that
+limit direct file system access from within bindings code.
+
+To address this, we have re-implemented some of the EZKL functions to accept data directly rather than file paths. This
+allows developers to avoid file system operations all together, conforming with the iOS development principles. This
+greater flexibility allows developers to choose to save data to the file system, keep it in memory, or pass it directly
+to the library functions as needed.
+
+---
+
+## Proposed Workflow
+
+The following is the suggested workflow for integrating EZKL into your iOS applications:
+
+### 1. Setup (Server-Side)
+
+- **Compile the Neural Network Circuit**:
+    - Use the EZKL CLI to compile your `.onnx` neural network model into an `.ezkl` circuit file.
+- **Generate Supporting Files**:
+    - **Settings File**: Generate the settings file required for the circuit.
+    - **Structured Reference String (SRS)**: Use the EZKL CLI to generate/get the SRS, which is necessary for proof
+      generation and verification.
+    - **Verification Key (VK) and Proving Key (PK)**: Generate the VK and PK using the SRS.
+
+- **Distribute Files to the iOS App**:
+    - Upload the SRS, VK, PK, and the compiled circuit file to your application server or embed them into your app as
+      needed.
+
+### 2. Prove (Client-Side on iOS Device)
+
+- **Retrieve Necessary Files**:
+    - Download or load the SRS, PK, VK, and the compiled circuit within your iOS app.
+- **Generate Witness**:
+    - Use the EZKL iOS Bindings to generate the witness by calling `genWitness`.
+- **Generate Proof**:
+    - Use the EZKL iOS Bindings to generate the zero-knowledge proof by calling `prove`.
+
+### 3. Verify (Client-Side on iOS Device)
+
+- **Retrieve Necessary Files**:
+    - Ensure the SRS, model settings, and VK are available within the app.
+    - Obtain the proof to be verified.
+- **Verify Proof**:
+    - Use the EZKL iOS Bindings to verify the proof by calling `verify`.
+
+### 4. Aggregate (Server-Side)
+
+- **Collect Proofs**:
+    - Collect proofs generated by the iOS devices to combine them into a single aggregate proof.
+- **Aggregate Proofs**:
+    - Use the EZKL CLI on a server to aggregate the collected proofs.
+    - *Note:* Aggregation is performed server-side due to high memory and computational requirements.
+
+---
+
+## Requirements
+
+Before building the bindings, ensure that you have the following installed:
+
+- **Xcode Command Line Tools**: [Download](https://developer.apple.com/xcode/resources/)
+- **Rust and Cargo**: [Install Rust](https://www.rust-lang.org/tools/install)
+
+Ensure your Rust toolchain is up-to-date and that you can build Rust projects successfully.
+
+---
+
+## Building the Bindings
+
+To build the Swift bindings for the EZKL library, follow these steps:
+
+### Build in Release Mode
+
+Running in release mode produces optimized bindings that are smaller and faster but takes longer to compile.
+
+```bash
+cargo run --bin gen-bindings
+```
+
+This command will generate the bindings in the `release` mode. The compilation process may take some time, but the
+resulting bindings will:
+
+- Be **optimized** for performance.
+- Occupy **less disk space** (approximately 10 times smaller than debug builds).
+- Run **faster** (approximately 20 times faster than debug builds).
+
+### Build in Debug Mode
+
+If you prefer a quicker build time for testing purposes, you can build in `debug` mode:
+
+```bash
+CONFIGURATION=debug cargo run --bin gen-bindings -- --debug
+```
+
+**Note:**
+
+- The resulting bindings will be **larger** and **slower** than the release version.
+- Suitable for development and testing but not recommended for production use.
+
+### Output
+
+The generated bindings will be saved in the `EzklCoreBindings` directory at the root of the project.
+
+---
+
+## Using the Bindings in Your Xcode Project
+
+To integrate the generated bindings into your Xcode project:
+
+1. **Add the `EzklCoreBindings` Directory**:
+    - Drag and drop the `EzklCoreBindings` directory into your Xcode project navigator.
+    - Ensure that the "Copy items if needed" option is selected.
+
+2. **Update Build Settings**:
+    - In your Xcode project settings, navigate to **Build Settings**.
+    - Under **Library Search Paths**, add the path to the `EzklCoreBindings` directory.
+    - Under **Framework Search Paths**, do the same.
+
+3. **Import the Module in Swift**:
+    - In your Swift files, import the EZKL module:
+      ```swift
+      import EzklCore
+      ```
+
+4. **Follow Detailed Instructions**:
+    - For more comprehensive guidance, follow the steps outlined in
+      the [ZKMopro iOS Setup Tutorial](https://zkmopro.org/docs/getting-started/ios-setup).
