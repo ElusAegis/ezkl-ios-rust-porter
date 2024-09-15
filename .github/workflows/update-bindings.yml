@@ -103,8 +103,6 @@ jobs:
           git add Sources/EzklCoreBindings
           git checkout -b testing-actions
           git commit -m "Update EzklCoreBindings from ezkl-ios-rust-porter"
-          git config credential.helper 'store --file=.git/credentials'
-          echo "https://${SWIFT_PACKAGE_OWNER_USERNAME}:${EZKL_PORTER_TOKEN}@github.com" > .git/credentials
-          git push --set-upstream origin testing-actions
+          git push --set-upstream https://${SWIFT_PACKAGE_OWNER_USERNAME}:${EZKL_PORTER_TOKEN}@github.com/ElusAegis/ezkl-ios-port.git testing-actions
         env:
           EZKL_PORTER_TOKEN: ${{ secrets.EZKL_PORTER_TOKEN }}
