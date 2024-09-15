@@ -1,5 +1,5 @@
 use crate::serialization::{deserialize_circuit, deserialize_params_prover, deserialize_vk};
-use crate::EZKLError;
+use crate::ExternalEZKLError;
 use colored_json::ToColoredJson;
 use ezkl::circuit::region::RegionSettings;
 use ezkl::graph::input::GraphData;
@@ -26,7 +26,7 @@ pub async fn gen_witness_wrapper(
     compiled_circuit: Vec<u8>,
     vk: Vec<u8>,
     srs: Vec<u8>,
-) -> Result<String, EZKLError> {
+) -> Result<String, ExternalEZKLError> {
     // Call `gen_witness`
     let witness = gen_witness(&compiled_circuit, input_json, Some(&vk), Some(&srs)).await;
 

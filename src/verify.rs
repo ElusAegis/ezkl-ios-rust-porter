@@ -1,5 +1,5 @@
 use crate::serialization::{deserialize_params_verifier, deserialize_vk};
-use crate::{EZKLError, IPASingleStrategy, KZGSingleStrategy};
+use crate::{ExternalEZKLError, IPASingleStrategy, KZGSingleStrategy};
 use ezkl::graph::{GraphCircuit, GraphSettings};
 use ezkl::pfsys::evm::aggregation_kzg::PoseidonTranscript;
 use ezkl::pfsys::{verify_proof_circuit, Snark, TranscriptType};
@@ -38,7 +38,7 @@ pub fn verify_wrapper(
     settings_json: String,
     vk: Vec<u8>,
     srs: Vec<u8>,
-) -> Result<bool, EZKLError> {
+) -> Result<bool, ExternalEZKLError> {
     verify(proof_json, settings_json, &vk, Some(&srs), false).map_err(|e| e.into())
 }
 

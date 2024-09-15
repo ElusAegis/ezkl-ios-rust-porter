@@ -1,5 +1,5 @@
 use crate::serialization::{deserialize_circuit, deserialize_params_prover, deserialize_pk};
-use crate::EZKLError;
+use crate::ExternalEZKLError;
 use crate::{IPAAccumulatorStrategy, IPASingleStrategy, KZGAccumulatorStrategy, KZGSingleStrategy};
 use ezkl::circuit::CheckMode;
 use ezkl::graph::{GraphCircuit, GraphWitness};
@@ -33,7 +33,7 @@ pub fn prove_wrapper(
     compiled_circuit: Vec<u8>,
     pk: Vec<u8>,
     srs: Vec<u8>,
-) -> Result<String, EZKLError> {
+) -> Result<String, ExternalEZKLError> {
     prove_advanced_wrapper(
         witness_json,
         compiled_circuit,
@@ -62,7 +62,7 @@ pub fn prove_advanced_wrapper(
     srs: Vec<u8>,
     proof_type: ProofTypeWrapper,
     check_mode: CheckModeWrapper,
-) -> Result<String, EZKLError> {
+) -> Result<String, ExternalEZKLError> {
     let proof = prove(
         witness_json,
         &compiled_circuit,
