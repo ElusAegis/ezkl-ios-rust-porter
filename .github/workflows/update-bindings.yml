@@ -98,8 +98,8 @@ jobs:
         if: success()
         run: |
           cd ezkl-ios-port
-          git config user.name "GitHub Action"
-          git config user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
           git add Sources/EzklCoreBindings
           git checkout -b testing-actions
           git commit -m "Update EzklCoreBindings from ezkl-ios-rust-porter"
