@@ -19,22 +19,29 @@ use snark_verifier::system::halo2::transcript::evm::EvmTranscript;
 use snark_verifier::system::halo2::{compile, Config};
 use uniffi::export;
 
-/// Proves a circuit with the given witness and parameters
-/// This function is used for default proving configurations to abstract the configuration details
+/// Proves a circuit using the provided witness, compiled circuit, proving key, and SRS.
+///
+/// This function abstracts away configuration details by using default proving configurations.
 ///
 /// # Arguments
-/// witness_json: String - JSON string representing the witness generated for the circuit input.
-/// compiled_circuit: Vec<Bytes> - Compiled circuit binary.
-/// vk: Vec<Bytes> - Verification key binary.
-/// srs: Vec<Bytes> - Structured reference string binary.
+///
+/// * `witness_json` - A `String` containing the JSON representation of the witness generated for the circuit input.
+/// * `compiled_circuit` - A `Vec<u8>` containing the compiled circuit in binary form.
+/// * `pk` - A `Vec<u8>` containing the Proving Key (PK) in binary form.
+/// * `srs` - A `Vec<u8>` containing the Structured Reference String (SRS) in binary form.
+///
+/// # Returns
+///
+/// * `Ok(String)` - The generated proof as a JSON `String`.
+/// * `Err(ExternalEZKLError)` - An error that occurred during the proving process.
 #[export]
-pub fn prove_wrapper(
+pub fn prove(
     witness_json: String,
     compiled_circuit: Vec<u8>,
     pk: Vec<u8>,
     srs: Vec<u8>,
 ) -> Result<String, ExternalEZKLError> {
-    prove_advanced_wrapper(
+    prove_advanced(
         witness_json,
         compiled_circuit,
         pk,
@@ -44,18 +51,25 @@ pub fn prove_wrapper(
     )
 }
 
-/// Proves a circuit with the given witness and parameters
-/// This function is used for advanced proving configurations
+/// Proves a circuit using the provided witness, compiled circuit, proving key, and SRS.
+///
+/// This function is used for advanced proving configurations.
 ///
 /// # Arguments
-/// witness_json: String - JSON string representing the witness generated for the circuit input.
-/// compiled_circuit: Vec<Bytes> - Compiled circuit binary.
-/// vk: Vec<Bytes> - Verification key binary.
-/// srs: Vec<Bytes> - Structured reference string binary.
-/// proof_type: ProofTypeWrapper - Proof type to be used for proving. Default is Single. ForAggr is used for aggregation proofs.
-/// check_mode: CheckModeWrapper - Check mode to be used for proving. Default is SAFE. UNSAFE is used for unsafe proving useful for debugging.
+///
+/// * `witness_json` - A `String` containing the JSON representation of the witness generated for the circuit input.
+/// * `compiled_circuit` - A `Vec<u8>` containing the compiled circuit in binary form.
+/// * `pk` - A `Vec<u8>` containing the Proving Key (PK) in binary form.
+/// * `srs` - A `Vec<u8>` containing the Structured Reference String (SRS) in binary form.
+/// * `proof_type` - A `ProofTypeWrapper` enum value representing the proof type to be used for proving. Default is `Single`. For aggregation proofs, use `ForAggr`.
+/// * `check_mode` - A `CheckModeWrapper` enum value representing the check mode to be used for proving. Default is `SAFE`. For unsafe proving useful for debugging, use `UNSAFE`.
+///
+/// # Returns
+///
+/// * `Ok(String)` - The generated proof as a JSON `String`.
+/// * `Err(ExternalEZKLError)` - An error that occurred during the proving process.
 #[export]
-pub fn prove_advanced_wrapper(
+pub fn prove_advanced(
     witness_json: String,
     compiled_circuit: Vec<u8>,
     pk: Vec<u8>,
@@ -63,7 +77,7 @@ pub fn prove_advanced_wrapper(
     proof_type: ProofTypeWrapper,
     check_mode: CheckModeWrapper,
 ) -> Result<String, ExternalEZKLError> {
-    let proof = prove(
+    let proof = prove_internal(
         witness_json,
         &compiled_circuit,
         &pk,
@@ -79,7 +93,7 @@ pub fn prove_advanced_wrapper(
     .map_err(|e| e.into())
 }
 
-pub(crate) fn prove(
+pub(crate) fn prove_internal(
     witness_json: String,
     compiled_circuit: &[u8],
     serialized_pk: &[u8],

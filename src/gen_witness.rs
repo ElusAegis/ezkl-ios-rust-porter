@@ -12,32 +12,39 @@ use std::time::Instant;
 use uniffi::deps::log::{debug, trace, warn};
 use uniffi::export;
 
-/// Generate a witness for a given circuit and input data.
-/// Witness is then used to generate a proof.
+/// Generates a witness for a given circuit and input data.
+///
+/// The witness is a necessary component for generating a proof.
 ///
 /// # Arguments
-/// input_json: String - JSON string representing the input data for the circuit.
-/// compiled_circuit: Vec<Bytes> - Compiled circuit binary.
-/// vk: Vec<Bytes> - Verification key binary.
-/// srs: Vec<Bytes> - Structured reference string binary.
+///
+/// * `input_json` - A `String` containing the JSON representation of the input data for the circuit.
+/// * `compiled_circuit` - A `Vec<u8>` containing the compiled circuit in binary form.
+/// * `vk` - A `Vec<u8>` containing the Verification Key (VK) in binary form.
+/// * `srs` - A `Vec<u8>` containing the Structured Reference String (SRS) in binary form.
+///
+/// # Returns
+///
+/// * `Ok(String)` - The generated witness as a JSON `String`.
+/// * `Err(ExternalEZKLError)` - An error that occurred during witness generation.
 #[export]
-pub async fn gen_witness_wrapper(
+pub async fn gen_witness(
     input_json: String,
     compiled_circuit: Vec<u8>,
     vk: Vec<u8>,
     srs: Vec<u8>,
 ) -> Result<String, ExternalEZKLError> {
-    // Call `gen_witness`
-    let witness = gen_witness(&compiled_circuit, input_json, Some(&vk), Some(&srs)).await;
+    // Generate the witness internally
+    let graph = gen_witness_internal(&compiled_circuit, input_json, Some(&vk), Some(&srs)).await?;
+    // Convert the witness graph to JSON
+    let witness_json = graph
+        .as_json()
+        .map_err(|e| <crate::error::EZKLError>::from(e))?;
 
-    match witness {
-        Ok(graph) => graph.as_json().map_err(|e| e.into()),
-        Err(e) => Err(e),
-    }
-    .map_err(|e| e.into())
+    Ok(witness_json)
 }
 
-pub async fn gen_witness(
+pub async fn gen_witness_internal(
     compiled_circuit: &[u8],
     input_data: String,
     serialised_vk: Option<&[u8]>,

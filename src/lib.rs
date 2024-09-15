@@ -4,9 +4,9 @@ mod prove;
 mod serialization;
 mod verify;
 
-pub use gen_witness::gen_witness_wrapper;
-pub use prove::{prove_advanced_wrapper, prove_wrapper};
-pub use verify::verify_wrapper;
+pub use gen_witness::gen_witness;
+pub use prove::{prove, prove_advanced};
+pub use verify::verify;
 
 pub(crate) use error::EZKLError as ExternalEZKLError;
 pub(crate) use ezkl::EZKLError as InnerEZKLError;

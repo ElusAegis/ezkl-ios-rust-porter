@@ -21,3 +21,9 @@ impl From<InnerEZKLError> for EZKLError {
         EZKLError::InternalError(e.to_string())
     }
 }
+
+impl From<ezkl::graph::errors::GraphError> for EZKLError {
+    fn from(e: ezkl::graph::errors::GraphError) -> Self {
+        EZKLError::InternalError(e.to_string())
+    }
+}

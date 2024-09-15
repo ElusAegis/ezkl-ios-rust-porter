@@ -25,24 +25,30 @@ use std::time::Instant;
 use uniffi::deps::log::info;
 use uniffi::export;
 
-/// Verify a proof with the given parameters
+/// Verifies a proof using the provided proof data, circuit settings, verification key, and SRS.
 ///
 /// # Arguments
-/// proof_json: String - JSON string representing the proof to be verified.
-/// settings_json: String - JSON string representing the settings for the circuit.
-/// vk: Vec<Bytes> - Verification key binary.
-/// srs: Vec<Bytes> - Structured reference string binary.
+///
+/// * `proof_json` - A `String` containing the JSON representation of the proof to be verified.
+/// * `settings_json` - A `String` containing the JSON representation of the circuit settings.
+/// * `vk` - A `Vec<u8>` containing the Verification Key (VK) in binary form.
+/// * `srs` - A `Vec<u8>` containing the Structured Reference String (SRS) in binary form.
+///
+/// # Returns
+///
+/// * `Ok(bool)` - `true` if the proof is valid, `false` if the proof is invalid.
+/// * `Err(ExternalEZKLError)` - An error that occurred during verification.
 #[export]
-pub fn verify_wrapper(
+pub fn verify(
     proof_json: String,
     settings_json: String,
     vk: Vec<u8>,
     srs: Vec<u8>,
 ) -> Result<bool, ExternalEZKLError> {
-    verify(proof_json, settings_json, &vk, Some(&srs), false).map_err(|e| e.into())
+    verify_internal(proof_json, settings_json, &vk, Some(&srs), false).map_err(|e| e.into())
 }
 
-pub(crate) fn verify(
+pub(crate) fn verify_internal(
     proof_json: String,
     settings_json: String,
     serialised_vk: &[u8],
