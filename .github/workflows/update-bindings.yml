@@ -29,9 +29,8 @@ jobs:
           toolchain: nightly
           override: true
 
-# Whatever
-#      - name: Build EzklCoreBindings
-#        run: cargo run --bin gen-bindings
+      - name: Build EzklCoreBindings
+        run: cargo run --bin gen-bindings
 
       - name: Install Git LFS
         run: |
@@ -67,16 +66,18 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
             -resultBundlePath ../testResults
 
-# TODO: Uncomment this block after making them pass in CI
-#      - name: Run Example App Tests
-#        run: |
-#          cd ezkl-ios-port/Example
-#          xcodebuild test \
-#            -project Example.xcodeproj \
-#            -scheme EzklApp \
-#            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
-#            -parallel-testing-enabled NO \
-#            -resultBundlePath ../../exampleTestResults
+
+      # We avoid the UI test because it always times out on GitHub Actions
+      - name: Run Example App Tests
+        run: |
+          cd Example
+          xcodebuild test \
+            -project Example.xcodeproj \
+            -scheme EzklApp \
+            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
+            -parallel-testing-enabled NO \
+             -resultBundlePath ../../exampleTestResults \
+            -skip-testing:EzklAppUITests/EzklAppUITests/testButtonClicksInOrder
 
       - name: Upload Test Results (Package)
         if: always()
@@ -85,13 +86,12 @@ jobs:
           name: package-test-results
           path: ./testResults
 
-# TODO: Uncomment this block after making them pass in CI
-#      - name: Upload Test Results (Example)
-#        if: always()
-#        uses: actions/upload-artifact@v3
-#        with:
-#          name: example-app-test-results
-#          path: ./exampleTestResults
+      - name: Upload Test Results (Example)
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: example-app-test-results
+          path: ./exampleTestResults
 
       - name: Commit and Push Changes
         if: success()
