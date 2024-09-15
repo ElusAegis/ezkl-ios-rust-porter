@@ -12,7 +12,10 @@ name = "ios_ezkl"
 [dependencies]
 num-bigint = "0.4.0"
 
-uniffi = { version = "0.28", features = ["cli"] }
+uniffi = { version = "=0.28.0" }
+uniffi_bindgen = "=0.28.0"
+camino = "^1.1"
+
 uuid = { version = "1.10.0", features = ["v4"] }
 
 ezkl = { git = "https://github.com/zkonduit/ezkl.git", tag = "v13.0.2" }
