@@ -1,8 +1,6 @@
 /target
 /build
-
-/MoproiOSBindings/MoproBindings.xcframework/
-/MoproiOSBindings/ios_ezkl.swift
+/EzklCoreBindings
 
 /tests/ezkl-sample/pk.key
 /tests/ezkl-sample/vk.key
