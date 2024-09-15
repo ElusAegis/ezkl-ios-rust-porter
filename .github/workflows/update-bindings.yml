@@ -40,8 +40,7 @@ jobs:
 
       - name: Clone ezkl-ios-port repository
         run: |
-          git clone https://github.com/ElusAegis/ezkl-ios-port.git -b testing-actions
-          git checkout -b testing-actions
+          git clone https://github.com/ElusAegis/ezkl-ios-port.git
         env:
           GIT_LFS_SKIP_SMUDGE: "1"
 
@@ -50,27 +49,25 @@ jobs:
           cd ezkl-ios-port
           git lfs pull
 
-#      - name: Copy EzklCoreBindings
-#        run: |
-#          rm -rf ezkl-ios-port/Sources/EzklCoreBindings
-#          cp -r EzklCoreBindings ezkl-ios-port/Sources/
-      - name: Create a random file in ezkl-ios-port/Sources/EzklCoreBindings
+      - name: Copy EzklCoreBindings
         run: |
-          echo "This is a random file" > ezkl-ios-port/Sources/EzklCoreBindings/random.txt
+          rm -rf ezkl-ios-port/Sources/EzklCoreBindings
+          cp -r EzklCoreBindings ezkl-ios-port/Sources/
 
       - name: Set up Xcode environment
         run: |
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           sudo xcodebuild -license accept
 
-#      - name: Run Package Tests
-#        run: |
-#          cd ezkl-ios-port
-#          xcodebuild test \
-#            -scheme EzklPackage \
-#            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
-#            -resultBundlePath ../testResults
-#
+      - name: Run Package Tests
+        run: |
+          cd ezkl-ios-port
+          xcodebuild test \
+            -scheme EzklPackage \
+            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
+            -resultBundlePath ../testResults
+
+# TODO: Uncomment this block after making them pass in CI
 #      - name: Run Example App Tests
 #        run: |
 #          cd ezkl-ios-port/Example
@@ -80,14 +77,15 @@ jobs:
 #            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
 #            -parallel-testing-enabled NO \
 #            -resultBundlePath ../../exampleTestResults
-#
-#      - name: Upload Test Results (Package)
-#        if: always()
-#        uses: actions/upload-artifact@v3
-#        with:
-#          name: package-test-results
-#          path: ./testResults
-#
+
+      - name: Upload Test Results (Package)
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: package-test-results
+          path: ./testResults
+
+# TODO: Uncomment this block after making them pass in CI
 #      - name: Upload Test Results (Example)
 #        if: always()
 #        uses: actions/upload-artifact@v3
