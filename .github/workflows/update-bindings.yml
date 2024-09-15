@@ -29,6 +29,7 @@ jobs:
           toolchain: nightly
           override: true
 
+# Whatever
 #      - name: Build EzklCoreBindings
 #        run: cargo run --bin gen-bindings
 
