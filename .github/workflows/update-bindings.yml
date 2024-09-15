@@ -99,6 +99,8 @@ jobs:
           cd ezkl-ios-port
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
+          git lfs track "*.xcframework/**/libios_ezkl.a"
+          git add .gitattributes
           git add Sources/EzklCoreBindings
           git commit -m "Update EzklCoreBindings from ezkl-ios-rust-porter"
           git push --set-upstream https://${SWIFT_PACKAGE_OWNER_USERNAME}:${EZKL_PORTER_TOKEN}@github.com/${SWIFT_PACKAGE_OWNER_USERNAME}/ezkl-ios-port.git
