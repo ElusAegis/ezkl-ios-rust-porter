@@ -37,9 +37,7 @@ pub async fn gen_witness(
     // Generate the witness internally
     let graph = gen_witness_internal(&compiled_circuit, input_json, Some(&vk), Some(&srs)).await?;
     // Convert the witness graph to JSON
-    let witness_json = graph
-        .as_json()
-        .map_err(|e| <crate::error::EZKLError>::from(e))?;
+    let witness_json = graph.as_json()?;
 
     Ok(witness_json)
 }
