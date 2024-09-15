@@ -22,21 +22,22 @@ jobs:
 #      - name: Build EzklCoreBindings
 #        run: cargo run --bin gen-bindings
       - name: Create a Dummy File
-        run: touch EzklCoreBindings/src/lib.rs
+        run: mkdir EzklCoreBindings && touch EzklCoreBindings/EzklCoreBindings.swift
 
       - name: Clone ezkl-ios-port repository
         run: |
-          git clone https://github.com/ElusAegis/ezkl-ios-port.git # TODO run the script instead
+          git clone https://github.com/ElusAegis/ezkl-ios-port.git
       - name: Copy EzklCoreBindings
         run: |
           rm -rf ezkl-ios-port/Sources/EzklCoreBindings
           cp -r EzklCoreBindings ezkl-ios-port/Sources/
       - name: Commit and Push Changes
+      # TODO remove the checkout step and use the cloned repository
         run: |
           cd ezkl-ios-port
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
-          get checkout testing-actions # TODO remove this line
+          get checkout testing-actions 
           git add .
           git commit -m "Update EzklCoreBindings from ezkl-ios-rust-porter"
           git push https://$EZKL_PORTER_TOKEN@github.com/ElusAegis/ezkl-ios-port.git main
