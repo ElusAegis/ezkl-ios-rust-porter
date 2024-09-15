@@ -45,6 +45,7 @@ fn build_bindings(library_name: &str, mode: &str) {
     let framework_out = bindings_out.join("EzklCore.xcframework");
 
     // Define target architectures for building
+    #[allow(clippy::useless_vec)]
     let target_archs = vec![
         vec!["aarch64-apple-ios"],                         // iOS device
         vec!["aarch64-apple-ios-sim", "x86_64-apple-ios"], // iOS simulator
