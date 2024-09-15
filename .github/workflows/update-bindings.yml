@@ -29,8 +29,8 @@ jobs:
           toolchain: nightly
           override: true
 
-      - name: Build EzklCoreBindings
-        run: cargo run --bin gen-bindings
+#      - name: Build EzklCoreBindings
+#        run: cargo run --bin gen-bindings
 
       - name: Install Git LFS
         run: |
