@@ -70,7 +70,7 @@ jobs:
       # We avoid the UI test because it always times out on GitHub Actions
       - name: Run Example App Tests
         run: |
-          cd Example
+          cd ezkl-ios-port/Example
           xcodebuild test \
             -project Example.xcodeproj \
             -scheme EzklApp \
