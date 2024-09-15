@@ -24,6 +24,11 @@ jobs:
       - name: Create a Dummy File
         run: mkdir EzklCoreBindings && touch EzklCoreBindings/EzklCoreBindings.swift
 
+      - name: Install Git LFS
+        run: |
+          sudo apt-get install git-lfs
+          git lfs install
+
       - name: Clone ezkl-ios-port repository
         run: |
           git clone https://github.com/ElusAegis/ezkl-ios-port.git
