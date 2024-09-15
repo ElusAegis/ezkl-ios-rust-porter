@@ -80,7 +80,7 @@ fn setup_keys_once() {
 }
 
 #[tokio::test]
-async fn test_gen_witness_wrapper() {
+async fn test_gen_witness() {
     setup_keys_once();
 
     // 1. Read input JSON and file paths
@@ -91,9 +91,8 @@ async fn test_gen_witness_wrapper() {
     let vk = std::fs::read(VK_PATH).expect("Failed to read vk file");
     let srs = std::fs::read(SRS_PATH).expect("Failed to read srs file");
 
-    // 2. Call the gen_witness_wrapper function
-    let witness =
-        ios_ezkl::gen_witness_wrapper(input_json.to_string(), compiled_circuit, vk, srs).await;
+    // 2. Call the gen_witness function
+    let witness = ios_ezkl::gen_witness(input_json.to_string(), compiled_circuit, vk, srs).await;
 
     // 3. Assert that witness generation was successful
     assert!(witness.is_ok(), "Witness generation failed: {:?}", witness);
@@ -114,8 +113,8 @@ async fn test_end_to_end() {
     let settings_file = std::fs::read(SETTINGS_PATH).expect("Failed to read settings file");
     let settings = String::from_utf8(settings_file).expect("Failed to parse settings file");
 
-    // 2. Call the gen_witness_wrapper function
-    let witness = ios_ezkl::gen_witness_wrapper(
+    // 2. Call the gen_witness function
+    let witness = ios_ezkl::gen_witness(
         input_json.to_string(),
         compiled_circuit.clone(),
         vk.clone(),
@@ -127,15 +126,15 @@ async fn test_end_to_end() {
     assert!(witness.is_ok(), "Witness generation failed: {:?}", witness);
     let witness = witness.unwrap();
 
-    // 4. Generate proof using prove_wrapper
-    let proof = ios_ezkl::prove_wrapper(witness, compiled_circuit, pk, srs.clone());
+    // 4. Generate proof using prove
+    let proof = ios_ezkl::prove(witness, compiled_circuit, pk, srs.clone());
 
     // 5. Assert that proof generation was successful
     assert!(proof.is_ok(), "Proof generation failed: {:?}", proof);
     let proof_json = proof.unwrap();
 
-    // 6. Verify proof using verify_wrapper
-    let verify_result = ios_ezkl::verify_wrapper(proof_json.to_string(), settings, vk, srs);
+    // 6. Verify proof using verify
+    let verify_result = ios_ezkl::verify(proof_json.to_string(), settings, vk, srs);
 
     // 7. Assert that proof verification was successful
     assert!(
