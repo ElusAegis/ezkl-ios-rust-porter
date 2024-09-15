@@ -1,0 +1,44 @@
+name: Update EzklCoreBindings
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout ezkl-ios-rust-porter
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+#      - name: Build EzklCoreBindings
+#        run: cargo run --bin gen-bindings
+      - name: Create a Dummy File
+        run: touch EzklCoreBindings/src/lib.rs
+
+      - name: Clone ezkl-ios-port repository
+        run: |
+          git clone https://github.com/ElusAegis/ezkl-ios-port.git # TODO run the script instead
+      - name: Copy EzklCoreBindings
+        run: |
+          rm -rf ezkl-ios-port/Sources/EzklCoreBindings
+          cp -r EzklCoreBindings ezkl-ios-port/Sources/
+      - name: Commit and Push Changes
+        run: |
+          cd ezkl-ios-port
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          get checkout testing-actions # TODO remove this line
+          git add .
+          git commit -m "Update EzklCoreBindings from ezkl-ios-rust-porter"
+          git push https://$EZKL_PORTER_TOKEN@github.com/ElusAegis/ezkl-ios-port.git main
+        env:
+          EZKL_PORTER_TOKEN: ${{ secrets.EZKL_PORTER_TOKEN }}
